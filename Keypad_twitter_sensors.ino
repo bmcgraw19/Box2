@@ -18,14 +18,6 @@ DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
 #define tempSens 4
 #define pinLength 4 //This can be changed here to allow for a diffent code length requirement
 
-boolean battery = false; //Set to true when setting software
-
-int warn[] = {
-  1760, 988, 1760, 1760, 988, 1760, 988, 
-  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
-  1760,988, 1760, 988, 1760, 988, 1760, 988};
-
-int key[] = {1760};
 
 //Sensor values
 double temp;
@@ -120,21 +112,20 @@ void loop()
       //Steady green LED
       analogWrite(greenLED, 255); 
 
-      if(!codeSet && ((millis() - lastKeyCheck) > 50)) checkKeypad();    //Check keypad every 50 milliseconds
-      
+      if(!codeSet && ((millis() - lastKeyCheck) > 50)) 
+        checkKeypad();    //Check keypad every 50 milliseconds
       //If user presses pound and code is set, lock box
       else if((!digitalRead(rows[3])) && (!digitalRead(columns[0])) && codeSet) {
         tweet("Your box has been locked");
         locked = true;
         Serial.println("Box locked"); 
-      playSound(key, 100, sizeof(key) / sizeof(int));
+        playSound({1760}, 100, 1);
+      }
+    }else{
+      //Check keypad every 50 milliseconds
+      if (millis() - lastKeyCheck > 50) 
+        checkKeypad();
     }
-    }
-    else {
-          //Check keypad every 50 milliseconds
-        if (millis() - lastKeyCheck > 50) checkKeypad();
-    }
-
 
 
     //If code is set, box is locked, checked sensors
@@ -419,7 +410,10 @@ void soundAlarm(){
 
 
   //Make noise
-  playSound(warn, 100, (sizeof(warn) / sizeof(int)));
+  playSound({1760, 988, 1760, 1760, 988, 1760, 988, 
+  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
+  1760,988, 1760, 988, 1760, 988, 1760, 988}, 100, 23);
+  
   alarm = true;
 }
 
