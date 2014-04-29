@@ -1,4 +1,3 @@
-
 /*
 DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
  https://www.virtuabotix.com/product-dht11-temperaturehumidity-sensor-msrp-9-99/dht11_2s0a/
@@ -1018,21 +1017,3 @@ void tweet(String str){
     Serial.println("Waiting...");
     delay(90000);
 }
-
-
-TwitterCreds.h
---------------------------------------------------------
-const String  TWITTER_ACCESS_TOKEN = "2443401084-3ZLcrIrabSCG1Qeitnxxn7tuiNBkRfiS4EcCsCJ";
-const String  TWITTER_ACCESS_TOKEN_SECRET = "RvEamXSqqzwdSUnngZhKV8XJCis3udRjaKE2if15k0KrD";
-const String  TWITTER_API_KEY = "YiCUHyEFu5YGHHW6YFqWcBKLc";
-const String  TWITTER_API_SECRET = "M5ukAY6hnBX0Mf4Zwl1KbPJbKAVeEeK6bbMbBAsgfXEh5YIInp";
-
-
-
-TembooAccount.h
-----------------------------------------------------------------------------------
-#define TEMBOO_ACCOUNT "scarrick"  // Your Temboo account name 
-#define TEMBOO_APP_KEY_NAME "ardtweeto"  // Your Temboo app key name
-#define TEMBOO_APP_KEY "d4daeaf706eb41b6a98329ccba475b1c"  // Your Temboo app key
-
-
