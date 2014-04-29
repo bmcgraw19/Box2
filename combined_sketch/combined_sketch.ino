@@ -1,0 +1,415 @@
+/*
+DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
+ https://www.virtuabotix.com/product-dht11-temperaturehumidity-sensor-msrp-9-99/dht11_2s0a/
+ */
+
+#include <dht11.h>
+#include "Notes.h"
+#include <SoftwareSerial.h>
+
+#define LDR_Pin A2 //Light-dependent resistor
+#define greenLED A0
+#define speaker 13
+#define GPSrx 9
+#define GPStx 0
+#define tempSens 2
+#define pinLength 4 //This can be changed here to allow for a diffent code length requirement
+
+
+//Sensor values
+float temp;
+float hums;
+float longitude;
+float latitude;
+float angle;
+boolean codeSet = false;
+boolean alarm;
+boolean locked = false;
+//
+
+float lastKeyCheck = 0;
+
+double photoLevel = 300;
+
+//Keypad pins
+//Columns[left, mid, right]
+int columns[] = {
+  11,12,10};
+//Rows[top, mid, bottom, symbol]
+int rows[] = {
+  5, 6, 8, 7};
+
+//GPS variables
+SoftwareSerial gpsSerial(GPSrx, GPStx); // RX, TX (TX not used)
+const int sentenceSize = 80;
+char sentence[sentenceSize];
+int i = 0;
+
+
+//Temp & humid varibles
+dht11 DHT11;
+
+//Keypad variables
+int input;
+boolean hasInput;
+boolean resetMode = false;
+int count = 0; //Counts input digits
+int digits[pinLength];  //Points to array of input digits
+int code[pinLength]; //Points to array of stored code
+///End Keypad
+
+void setup()
+{
+  Serial.begin(9600);
+  while (!Serial) {
+    ; // wait for serial port to connect. Needed for Leonardo only
+  }
+
+  //GPS Setup
+  gpsSerial.begin(9600);
+
+
+  //Temp Sensor Setip
+  DHT11.attach(tempSens);
+
+
+  //Setup keypad
+
+  // initialize the digital pins as input_pullup.
+  for (int i=0; i<sizeof(columns)/sizeof(int); i++){
+    pinMode(columns[i], INPUT_PULLUP);
+  }
+
+  for (int i=0; i<sizeof(rows)/sizeof(int); i++){
+    pinMode(rows[i], INPUT_PULLUP);
+  }
+  //End Setup Keypad
+
+  alarm = false;
+}
+
+void loop()
+{
+  if (alarm) {
+    checkKeypad();
+    if(!hasInput) tone(speaker, NOTE_A4);
+  }
+
+  else{
+
+
+    //Phase 1: BOX Unlocked
+    //Step 1: Look for keypad input
+
+    
+
+
+    //Step 2: Set Code
+    if(!locked) {
+      //If no code is set, box is unlocked and dont read sensors
+      //Steady green LED
+      analogWrite(greenLED, 255); 
+
+      if(!codeSet && ((millis() - lastKeyCheck) > 50)) checkKeypad();    //Check keypad every 50 milliseconds
+      
+      //If user presses pound and code is set, lock box
+      else if((!digitalRead(rows[3])) && (!digitalRead(columns[0])) && codeSet) {
+        locked = true;
+        Serial.println("Box locked");  
+    }
+    }
+    else {
+          //Check keypad every 50 milliseconds
+        if (millis() - lastKeyCheck > 50) checkKeypad();
+    }
+
+
+
+    //If code is set, box is locked, checked sensors
+    if (locked){
+     //Turn off LED 
+      analogWrite(greenLED, 0); 
+
+      
+      //Phase 2: Box Locked
+      //Step 1: Establish WiFly connection, make noise if connection failed
+
+        //Step 2: Check LDR 
+      if ((millis() % 100) == 0) checkLDR();
+
+      //Step 4: Check Temp and humidity
+      if ((millis() % 1000) == 0) checkTemp();
+
+      //Step 5: Check gyroscope
+      //Step 6: Check GPS
+      readGPS();
+    }
+  }
+}
+
+boolean readGPS(){
+  if (gpsSerial.available())
+  {
+    char ch = gpsSerial.read();
+    if (ch != '\n' && i < sentenceSize)
+    {
+      sentence[i] = ch;
+      i++;
+    }
+    else
+    {
+      sentence[i] = '\0';
+      i = 0;
+      displayGPS();
+    }
+    return true;
+  }
+  else return false;
+}
+
+void displayGPS()
+{
+  char field[20];
+  getField(field, 0);
+  if (strcmp(field, "$GPRMC") == 0)
+  {
+    Serial.print("Lat: ");
+    getField(field, 3);  // number
+    Serial.print(field);
+    getField(field, 4); // N/S
+    Serial.print(field);
+
+    Serial.print(" Long: ");
+    getField(field, 5);  // number
+    Serial.print(field);
+    
+    char sign;
+    getField(field, 6);  // E/W
+    Serial.println(field);
+  }
+}
+
+void getField(char* buffer, int index)
+{
+  int sentencePos = 0;
+  int fieldPos = 0;
+  int commaCount = 0;
+  while (sentencePos < sentenceSize)
+  {
+    if (sentence[sentencePos] == ',')
+    {
+      commaCount ++;
+      sentencePos ++;
+    }
+    if (commaCount == index)
+    {
+      buffer[fieldPos] = sentence[sentencePos];
+      fieldPos ++;
+    }
+    sentencePos ++;
+  }
+  buffer[fieldPos] = '\0';
+} 
+
+void checkKeypad(){
+  
+  lastKeyCheck = millis();
+  //if array is full, print the full input, separated by dashes.
+  if (count == pinLength) {
+    Serial.print("You have entered: ");
+    for(int i=0; i<pinLength; i++) {
+      Serial.print(digits[i]);
+      if (!codeSet) code[i] = digits[i];
+      //Add dashes inbetween digits
+      if(i != (pinLength-1)) Serial.print("-");   
+    }
+
+    Serial.println();
+
+    //If code was just set for first time or reset, set codeSet to true, print confirmation an turn off indicator leds
+    if(!codeSet) {
+      codeSet = true;
+      locked = true;
+      alarm = false;
+      Serial.println("Code set. Box locked"); 
+      analogWrite(greenLED, 0);
+      //      analogWrite(redLED, 0);
+    }
+
+    //If a code has been set, check the code entered with the saved code
+    else {
+      //Check entered code with saved code
+      boolean correct = true;
+      for (int i=0; i<pinLength; i++) {
+        //If any digit is wrong, set correct boolean to false
+        if (code[i] != digits[i]) correct = false;
+      }
+
+      if (correct) {
+        Serial.println("Code is correct. Box is unlocked.");
+        alarm = false;
+        blinkGreen(5, 200);
+        locked = false;
+
+        //Check if resetMode is true
+        if(resetMode) codeSet = false;
+      }
+      else {
+        Serial.println("Code is incorrect.");
+        blinkGreen(5, 200);
+      }
+      //Set resetMode back to deafult value (false)
+      resetMode = false;
+    }
+
+    //Reset counter
+    count = 0;
+
+    //Free memory
+    delete[] digits;
+  }
+  //If array is not full, look for next input
+  else {
+    //Default hasInput to false (will set to true if input read)
+    hasInput = false;
+
+    //Start input counter at 1, increases during traversal to track which button is being read
+    int input = 1;
+
+    //Traverse the keypad by row so that numbers are checked for in order
+    for (int i=0; i<sizeof(rows)/sizeof(int); i++){
+      for (int j=0; j<sizeof(columns)/sizeof(int); j++){
+        //If that row and column are both sending a single, a button is being pressed that corresponds with input counter
+        if((!digitalRead(rows[i])) && (!digitalRead(columns[j]))) {
+
+          //Wait for button to be released
+          while ((!digitalRead(rows[i])) && (!digitalRead(columns[j])));
+
+          hasInput = true;
+
+          //Check for symbol row input
+
+          ///If * is pressed during code input, input starts over
+          if (input == 10) {
+            //Set the counter back to zero, print messege and blink yellow
+            count = 0;
+            Serial.println("Reset input");
+            //           blinkYellow(3, 300);
+            //Break out of loop so * is not stored
+            break;
+          }
+
+          else if (input == 11) input = 0;
+
+          //If user enters # at any time, and the code they entered is correct, enter resetMode to change the saved code.
+          else if (input == 12) {
+            resetMode = true; //Symbol is '#'
+            Serial.println("Rest mode enabled");
+            break;  
+          }
+
+          //Output: Print input button to Serial monitor and light yellow LED
+          Serial.print("Input: ");
+          Serial.println(input);
+
+          //Store input and increment counter
+          digits[count] = input;
+          count++;
+
+          //Flash led led to confirm input
+          blinkGreen(1, 100);
+          break;
+        }
+        //If no input read at that button, move on and increment the input counter
+        else {
+          input++;
+        }
+      }
+    }     
+  }
+}
+
+void blinkGreen(int count, int delayTime) {
+  for (int i=0; i<count; i++) {
+    analogWrite(greenLED, 255);
+    playSound(key, 100, sizeof(key) / sizeof(int));
+    delay(delayTime/2);
+    analogWrite(greenLED, 0);
+    delay(delayTime/2);
+  }
+}
+
+void checkTemp(){
+  int chk = DHT11.read();
+
+  Serial.print("Read sensor: ");
+  switch (chk)
+  {
+  case 0: 
+    Serial.println("OK"); 
+    break;
+  case -1: 
+    Serial.println("Checksum error"); 
+    break;
+  case -2: 
+    Serial.println("Time out error"); 
+    break;
+  default: 
+    Serial.println("Unknown error"); 
+    break;
+  }
+
+  Serial.print("Humidity (%): ");
+  Serial.println((float)DHT11.humidity, DEC);
+
+  Serial.print("Temperature (°C): ");
+  Serial.println((float)DHT11.temperature, DEC);
+
+  Serial.print("Temperature (°F): ");
+  Serial.println(DHT11.fahrenheit(), DEC);
+
+  Serial.print("Temperature (°K): ");
+  Serial.println(DHT11.kelvin(), DEC);
+
+  Serial.print("Dew Point (°C): ");
+  Serial.println(DHT11.dewPoint(), DEC);
+
+  Serial.print("Dew PointFast (°C): ");
+  Serial.println(DHT11.dewPointFast(), DEC);
+
+}
+
+void checkLDR(){
+  //Photoresistor
+  int LDRReading = analogRead(LDR_Pin); 
+
+//  Serial.println("\n");
+//  Serial.print("Photoresistor: ");
+//
+//  Serial.println(LDRReading);
+
+  if(locked && (LDRReading > photoLevel)) soundAlarm();
+}
+
+void sendData(){
+
+}
+
+void soundAlarm(){
+  Serial.println("INTRUDER!");
+  //Send warning tweet
+
+
+  //Make noise
+  playSound(warn, 100, (sizeof(warn) / sizeof(int)));
+  alarm = true;
+}
+
+
+void playSound(int *sound, int milliDelay, int length) {
+  for (int i=0; i<length; i++){
+    tone(speaker, sound[i]);
+    delay(milliDelay);
+    noTone(speaker);
+  }
+}
