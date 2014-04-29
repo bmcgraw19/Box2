@@ -1,4 +1,4 @@
-const String  TWITTER_ACCESS_TOKEN = "2443401084-3ZLcrIrabSCG1Qeitnxxn7tuiNBkRfiS4EcCsCJ";
-const String  TWITTER_ACCESS_TOKEN_SECRET = "RvEamXSqqzwdSUnngZhKV8XJCis3udRjaKE2if15k0KrD";
-const String  TWITTER_API_KEY = "YiCUHyEFu5YGHHW6YFqWcBKLc";
-const String  TWITTER_API_SECRET = "M5ukAY6hnBX0Mf4Zwl1KbPJbKAVeEeK6bbMbBAsgfXEh5YIInp";
+#define TEMBOO_ACCOUNT "scarrick"  // Your Temboo account name 
+#define TEMBOO_APP_KEY_NAME "ardtweeto"  // Your Temboo app key name
+#define TEMBOO_APP_KEY "d4daeaf706eb41b6a98329ccba475b1c"  // Your Temboo app key
+
