@@ -61,13 +61,9 @@ int code[pinLength]; //Points to array of stored code
 
 void setup()
 {
-  if(!battery) {
+  if(!battery) 
    Serial.begin(9600);
-
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for Leonardo only
-  }
-  }
+  
   //GPS Setup
   gpsSerial.begin(9600);
 
@@ -77,29 +73,17 @@ void setup()
 
 
   //Setup keypad
-
-  // initialize the digital pins as input_pullup.
-  for (int i=0; i<sizeof(columns)/sizeof(int); i++){
-    pinMode(columns[i], INPUT_PULLUP);
-  }
-
-  for (int i=0; i<sizeof(rows)/sizeof(int); i++){
-    pinMode(rows[i], INPUT_PULLUP);
-  }
-  //End Setup Keypad
-
+  do_keypad_setup();
   alarm = false;
 }
+
 
 void loop()
 {
   if (alarm) {
     checkKeypad();
     if(!hasInput) tone(speaker, NOTE_A4);
-  }
-
-  else{
-
+  }else{
 
     //Phase 1: BOX Unlocked
     //Step 1: Look for keypad input
@@ -151,6 +135,20 @@ void loop()
   }
 }
 
+void do_keypad_setup(){
+
+  // initialize the digital pins as input_pullup.
+  for (int i=0; i<sizeof(columns)/sizeof(int); i++){
+    pinMode(columns[i], INPUT_PULLUP);
+  }
+
+  for (int i=0; i<sizeof(rows)/sizeof(int); i++){
+    pinMode(rows[i], INPUT_PULLUP);
+  }
+  //End Setup Keypad
+}
+
+
 boolean readGPS(){
   if (gpsSerial.available())
   {
@@ -171,12 +169,10 @@ boolean readGPS(){
   else return false;
 }
 
-void displayGPS()
-{
+void displayGPS(){
   char field[20];
   getField(field, 0);
-  if (strcmp(field, "$GPRMC") == 0)
-  {
+  if (strcmp(field, "$GPRMC") == 0){
     Serial.print("Lat: ");
     getField(field, 3);  // number
     Serial.print(field);
@@ -193,20 +189,16 @@ void displayGPS()
   }
 }
 
-void getField(char* buffer, int index)
-{
+void getField(char* buffer, int index){
   int sentencePos = 0;
   int fieldPos = 0;
   int commaCount = 0;
-  while (sentencePos < sentenceSize)
-  {
-    if (sentence[sentencePos] == ',')
-    {
+  while (sentencePos < sentenceSize){
+    if (sentence[sentencePos] == ','){
       commaCount ++;
       sentencePos ++;
     }
-    if (commaCount == index)
-    {
+    if (commaCount == index){
       buffer[fieldPos] = sentence[sentencePos];
       fieldPos ++;
     }
@@ -387,10 +379,10 @@ void checkLDR(){
   //Photoresistor
   int LDRReading = analogRead(LDR_Pin); 
 
-//  Serial.println("\n");
-//  Serial.print("Photoresistor: ");
-//
-//  Serial.println(LDRReading);
+if(debug) Serial.println("\n");
+if(debug)  Serial.print("Photoresistor: ");
+
+if(debug)  Serial.println(LDRReading);
 
   if(locked && (LDRReading > photoLevel)) soundAlarm();
 }
@@ -421,23 +413,6 @@ void playSound(int *sound, int milliDelay, int length) {
 
 
 
-
-
-
-
-
-
-
-
-
-Aaron’s new whatever
-----------------------------------------------------------------------------------------
-
-
-/*
-DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
- https://www.virtuabotix.com/product-dht11-temperaturehumidity-sensor-msrp-9-99/dht11_2s0a/
- */
 
 #include <dht11.h>
 #include <SoftwareSerial.h>
@@ -902,7 +877,7 @@ void tweet(String str){
     StatusesUpdateChoreo.addInput("ConsumerSecret", TWITTER_API_SECRET);
 
     // and the tweet we want to send
-    StatusesUpdateChoreo.addInput("StatusUpdate", tweetText);
+    StatusesUpdateChoreo.addInput("StatusUpdate", str);
 
     // tell the Process to run and wait for the results. The 
     // return code (returnCode) will tell us whether the Temboo client 
@@ -925,95 +900,4 @@ void tweet(String str){
     // do nothing for the next 90 seconds
     Serial.println("Waiting...");
     delay(2000);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Known to tweet
-----------------------------------------------------------------------------------
-
-#include <Bridge.h>
-#include <Temboo.h>
-#include "TembooAccount.h" // contains Temboo account information, as described below
-#include "TwitterCreds.h"
-
-void setup() {
-  Serial.begin(9600);
-  Bridge.begin();
-}
-
-void loop()
-{
-String poo = "habidoobab";
-tweet(poo);
-
-}
-
-void tweet(String str){
-      Serial.println("Running SendATweet - Run #");
-  
-    // define the text of the tweet we want to send
-    String tweetText = str;
-
-    
-    TembooChoreo StatusesUpdateChoreo;
-
-    // invoke the Temboo client
-    // NOTE that the client must be reinvoked, and repopulated with
-    // appropriate arguments, each time its run() method is called.
-    StatusesUpdateChoreo.begin();
-    
-    // set Temboo account credentials
-    StatusesUpdateChoreo.setAccountName(TEMBOO_ACCOUNT);
-    StatusesUpdateChoreo.setAppKeyName(TEMBOO_APP_KEY_NAME);
-    StatusesUpdateChoreo.setAppKey(TEMBOO_APP_KEY);
-
-    // identify the Temboo Library choreo to run (Twitter > Tweets > StatusesUpdate)
-    StatusesUpdateChoreo.setChoreo("/Library/Twitter/Tweets/StatusesUpdate");
-
-    // set the required choreo inputs
-    // see https://www.temboo.com/library/Library/Twitter/Tweets/StatusesUpdate/ 
-    // for complete details about the inputs for this Choreo
- 
-    // add the Twitter account information
-    StatusesUpdateChoreo.addInput("AccessToken", TWITTER_ACCESS_TOKEN);
-    StatusesUpdateChoreo.addInput("AccessTokenSecret", TWITTER_ACCESS_TOKEN_SECRET);
-    StatusesUpdateChoreo.addInput("ConsumerKey", TWITTER_API_KEY);    
-    StatusesUpdateChoreo.addInput("ConsumerSecret", TWITTER_API_SECRET);
-
-    // and the tweet we want to send
-    StatusesUpdateChoreo.addInput("StatusUpdate", tweetText);
-
-    // tell the Process to run and wait for the results. The 
-    // return code (returnCode) will tell us whether the Temboo client 
-    // was able to send our request to the Temboo servers
-    unsigned int returnCode = StatusesUpdateChoreo.run();
-
-    // a return code of zero (0) means everything worked
-    if (returnCode == 0) {
-        Serial.println("Success! Tweet sent!");
-    } else {
-      // a non-zero return code means there was an error
-      // read and print the error message
-      while (StatusesUpdateChoreo.available()) {
-        char c = StatusesUpdateChoreo.read();
-        Serial.print(c);
-      }
-    } 
-    StatusesUpdateChoreo.close();
-
-    // do nothing for the next 90 seconds
-    Serial.println("Waiting...");
-    delay(90000);
 }
