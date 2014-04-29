@@ -2,13 +2,22 @@
 DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
  https://www.virtuabotix.com/product-dht11-temperaturehumidity-sensor-msrp-9-99/dht11_2s0a/
  */
- 
+
 #include <dht11.h>
 #include <SoftwareSerial.h>
 #include <Bridge.h>
 #include <Temboo.h>
-#include "TwitterCreds.h" // contains Twitter account information
-#include "TembooAccount.h" // contains Temboo account information
+//#include "TwitterCreds.h" // contains Twitter account information
+//#include "TembooAccount.h" // contains Temboo account information
+
+#define  TWITTER_ACCESS_TOKEN "2443401084-3ZLcrIrabSCG1Qeitnxxn7tuiNBkRfiS4EcCsCJ"
+#define  TWITTER_ACCESS_TOKEN_SECRET "RvEamXSqqzwdSUnngZhKV8XJCis3udRjaKE2if15k0KrD"
+#define  TWITTER_API_KEY "YiCUHyEFu5YGHHW6YFqWcBKLc"
+#define  TWITTER_API_SECRET "M5ukAY6hnBX0Mf4Zwl1KbPJbKAVeEeK6bbMbBAsgfXEh5YIInp"
+
+#define TEMBOO_ACCOUNT "scarrick"  // Your Temboo account name 
+#define TEMBOO_APP_KEY_NAME "ardtweeto"  // Your Temboo app key name
+#define TEMBOO_APP_KEY "d4daeaf706eb41b6a98329ccba475b1c"  // Your Temboo app key
 
 #define LDR_Pin A4 //Light-dependent resistor
 #define greenLED A0
@@ -17,22 +26,33 @@ DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
 #define GPStx 0
 #define tempSens 4
 #define pinLength 4 //This can be changed here to allow for a diffent code length requirement
+#define sentenceSize 80
 
+boolean battery = false; //Set to true when setting software
+
+int warn[] = {
+  1760, 988, 1760, 1760, 988, 1760, 988, 
+  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
+  1760,988, 1760, 988, 1760, 988, 1760, 988};
+
+int key[] = {1760};
 
 //Sensor values
-double temp;
-double hums;
-float longitude;
-float latitude;
-double angle;
+int temp;
+int hums;
+String coords;
+int angle;
 boolean codeSet = false;
-boolean alarm;
+boolean alarm = false;
 boolean locked = false;
 //
 
+float lastTweet = 0;
+int tweetFreq = 10000;
+
 float lastKeyCheck = 0;
 
-double photoLevel = 300;
+int photoLevel = 300;
 
 //Keypad pins
 //Columns[left, mid, right]
@@ -44,7 +64,7 @@ int rows[] = {
 
 //GPS variables
 SoftwareSerial gpsSerial(GPSrx, GPStx); // RX, TX (TX not used)
-const int sentenceSize = 80;
+//const int sentenceSize = 80;
 char sentence[sentenceSize];
 int i = 0;
 
@@ -108,28 +128,19 @@ void loop()
 
     //Step 2: Set Code
     if(!locked) {
-      //If no code is set, box is unlocked and dont read sensors
-      //Steady green LED
-      analogWrite(greenLED, 255); 
-
-      if(!codeSet && ((millis() - lastKeyCheck) > 50)) 
-        checkKeypad();    //Check keypad every 50 milliseconds
-      //If user presses pound and code is set, lock box
-      else if((!digitalRead(rows[3])) && (!digitalRead(columns[0])) && codeSet) {
-        tweet("Your box has been locked");
-        locked = true;
-        Serial.println("Box locked"); 
-        playSound({1760}, 100, 1);
-      }
-    }else{
-      //Check keypad every 50 milliseconds
-      if (millis() - lastKeyCheck > 50) 
-        checkKeypad();
+      
+      boxUnlocked();
     }
+    else {
+          //Check keypad every 50 milliseconds
+        if (millis() - lastKeyCheck > 50) checkKeypad();
+    }
+
 
 
     //If code is set, box is locked, checked sensors
     if (locked){
+      
      //Turn off LED 
       analogWrite(greenLED, 0); 
 
@@ -146,6 +157,14 @@ void loop()
       //Step 5: Check gyroscope
       //Step 6: Check GPS
       readGPS();
+      if((millis() - lastTweet) > tweetFreq) {
+        String msg = "Box status: ";
+        msg += String(temp);
+        Serial.print("Tweet to send: ");
+        Serial.println(msg);
+        tweet(msg);
+        lastTweet = millis();
+      }
     }
   }
 }
@@ -170,7 +189,7 @@ boolean readGPS(){
   else return false;
 }
 
-void ~GPS()
+void displayGPS()
 {
   char field[20];
   getField(field, 0);
@@ -234,7 +253,7 @@ void checkKeypad(){
       codeSet = true;
       locked = true;
       alarm = false;
-      Serial.println("Code set. Box locked"); 
+      Serial.println(F("Code set. Box locked")); 
       analogWrite(greenLED, 0);
       //      analogWrite(redLED, 0);
     }
@@ -249,11 +268,14 @@ void checkKeypad(){
       }
 
       if (correct) {
-        Serial.println("Code is correct. Box is unlocked.");
+        Serial.println(F("Code is correct. Box is unlocked."));
+        Serial.println(F("Test 1"));
+//        String msg = "Your box has been unlocked";
+//        Serial.println(msg);
+        Serial.println(F("Test 2"));
         alarm = false;
         locked = false;
-        String str = "Your box has been unlocked";
-        tweet(str);
+        Serial.println(F("Test 3"));
         blinkGreen(5, 200);
 
 
@@ -261,7 +283,7 @@ void checkKeypad(){
         if(resetMode) codeSet = false;
       }
       else {
-        Serial.println("Code is incorrect.");
+        Serial.println(F("Code is incorrect."));
         blinkGreen(5, 200);
       }
       //Set resetMode back to deafult value (false)
@@ -299,7 +321,7 @@ void checkKeypad(){
           if (input == 10) {
             //Set the counter back to zero, print messege and blink yellow
             count = 0;
-            Serial.println("Reset input");
+            Serial.println(F("Reset input"));
             //           blinkYellow(3, 300);
             //Break out of loop so * is not stored
             break;
@@ -310,7 +332,7 @@ void checkKeypad(){
           //If user enters # at any time, and the code they entered is correct, enter resetMode to change the saved code.
           else if (input == 12) {
             resetMode = true; //Symbol is '#'
-            Serial.println("Rest mode enabled");
+            Serial.println(F("Rest mode enabled"));
             break;  
           }
 
@@ -348,31 +370,29 @@ void blinkGreen(int count, int delayTime) {
 void checkTemp(){
   int chk = DHT11.read();
 
-  Serial.print("Read sensor: ");
-  switch (chk)
-  {
-  case 0: 
-    Serial.println("OK"); 
-    break;
-  case -1: 
-    Serial.println("Checksum error"); 
-    break;
-  case -2: 
-    Serial.println("Time out error"); 
-    break;
-  default: 
-    Serial.println("Unknown error"); 
-    break;
-  }
-  
-  hums = DHT11.humidity;
-  temp = DHT11.fahrenheit();
-
+//  Serial.print(F("Read sensor: "));
+//  switch (chk)
+//  {
+//  case 0: 
+//    Serial.println("OK"); 
+//    break;
+//  case -1: 
+//    Serial.println(F("Checksum error")); 
+//    break;
+//  case -2: 
+//    Serial.println(F("Time out error")); 
+//    break;
+//  default: 
+//    Serial.println(F("Unknown error")); 
+//    break;
+//  }
+temp = (int)DHT11.fahrenheit();
+Serial.println(temp);
   Serial.print("Humidity (%): ");
-  Serial.println((float)DHT11.humidity, DEC);
+  Serial.println((int)DHT11.humidity, DEC);
 
   Serial.print("Temperature (°C): ");
-  Serial.println((float)DHT11.temperature, DEC);
+  Serial.println((int)DHT11.temperature, DEC);
 
   Serial.print("Temperature (°F): ");
   Serial.println(DHT11.fahrenheit(), DEC);
@@ -405,15 +425,12 @@ void sendData(){
 }
 
 void soundAlarm(){
-  Serial.println("INTRUDER!");
+  Serial.println(F("INTRUDER!"));
   //Send warning tweet
 
 
   //Make noise
-  playSound({1760, 988, 1760, 1760, 988, 1760, 988, 
-  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
-  1760,988, 1760, 988, 1760, 988, 1760, 988}, 100, 23);
-  
+  playSound(warn, 100, (sizeof(warn) / sizeof(int)));
   alarm = true;
 }
 
@@ -428,23 +445,29 @@ void playSound(int *sound, int milliDelay, int length) {
 
 
 void tweet(String str){
-      Serial.println("Running SendATweet - Run #");
-  
+      Serial.println(F("Running SendATweet - Run #"));
+    Serial.println(F("after running"));
     // define the text of the tweet we want to send
     String tweetText = str;
+    
+    Serial.println(F("after set str"));
 
     
     TembooChoreo StatusesUpdateChoreo;
-
+    
+    Serial.println(F("temboochoreo declared"));
     // invoke the Temboo client
     // NOTE that the client must be reinvoked, and repopulated with
     // appropriate arguments, each time its run() method is called.
     StatusesUpdateChoreo.begin();
     
+    Serial.println(F("after choreo begin"));
     // set Temboo account credentials
     StatusesUpdateChoreo.setAccountName(TEMBOO_ACCOUNT);
     StatusesUpdateChoreo.setAppKeyName(TEMBOO_APP_KEY_NAME);
     StatusesUpdateChoreo.setAppKey(TEMBOO_APP_KEY);
+
+    Serial.println(F("after temboo creds"));
 
     // identify the Temboo Library choreo to run (Twitter > Tweets > StatusesUpdate)
     StatusesUpdateChoreo.setChoreo("/Library/Twitter/Tweets/StatusesUpdate");
@@ -459,8 +482,13 @@ void tweet(String str){
     StatusesUpdateChoreo.addInput("ConsumerKey", TWITTER_API_KEY);    
     StatusesUpdateChoreo.addInput("ConsumerSecret", TWITTER_API_SECRET);
 
+
+    Serial.println(F("after twitter creds"));
+
     // and the tweet we want to send
-    StatusesUpdateChoreo.addInput("StatusUpdate", str);
+    StatusesUpdateChoreo.addInput("StatusUpdate", tweetText);
+
+    Serial.println(F("after add input"));
 
     // tell the Process to run and wait for the results. The 
     // return code (returnCode) will tell us whether the Temboo client 
@@ -469,7 +497,7 @@ void tweet(String str){
 
     // a return code of zero (0) means everything worked
     if (returnCode == 0) {
-        Serial.println("Success! Tweet sent!");
+        Serial.println(F("Success! Tweet sent!"));
     } else {
       // a non-zero return code means there was an error
       // read and print the error message
@@ -483,4 +511,19 @@ void tweet(String str){
     // do nothing for the next 90 seconds
     Serial.println("Waiting...");
     delay(2000);
+}
+
+void boxUnlocked(){
+        //If no code is set, box is unlocked and dont read sensors
+      //Steady green LED
+      analogWrite(greenLED, 255); 
+
+      if(!codeSet && ((millis() - lastKeyCheck) > 50)) checkKeypad();    //Check keypad every 50 milliseconds
+      
+      //If user presses pound and code is set, lock box
+      else if((!digitalRead(rows[3])) && (!digitalRead(columns[0])) && codeSet) {
+        locked = true;
+        Serial.println(F("Box locked")); 
+      playSound(key, 100, sizeof(key) / sizeof(int));
+    }
 }
