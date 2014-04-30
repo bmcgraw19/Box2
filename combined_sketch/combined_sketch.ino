@@ -4,18 +4,16 @@ DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
  */
 
 #include <dht11.h>
-#include "Notes.h"
+//#include "Notes.h"
 #include <SoftwareSerial.h>
 #include <Wire.h>
 
-
-
-#define LDR_Pin A2 //Light-dependent resistor
+#define LDR_Pin A4 //Light-dependent resistor
 #define greenLED A0
 #define speaker 13
 #define GPSrx 9
 #define GPStx 0
-#define tempSens 2
+#define tempSens 4
 #define pinLength 4 //This can be changed here to allow for a diffent code length requirement
 #define GYRO 0x68         // gyro I2C address
 #define BMP085_ADDRESS 0x77  // I2C address of BMP085
@@ -27,6 +25,13 @@ DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
 #define REG_ACCEL_Z 0x27
 #define CTRL 0x3D
 
+//Sounds
+int warn[] = {
+  1760, 988, 1760, 1760, 988, 1760, 988, 
+  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
+  1760,988, 1760, 988, 1760, 988, 1760, 988};
+
+int key[] = {1760};
 
 // Globals section
 float temp;
@@ -64,7 +69,7 @@ long b5;
 short temperature;
 long pressure;
 float lastKeyCheck = 0;
-double photoLevel = 300;
+double photoLevel = 400;
 //Keypad pins
 //Columns[left, mid, right]
 int columns[] = {11,12,10};
@@ -85,7 +90,7 @@ int count = 0; //Counts input digits
 int digits[pinLength];  //Points to array of input digits
 int code[pinLength]; //Points to array of stored code
 ///End Keypad
-
+long last;
 
 
 void setup()
@@ -107,20 +112,19 @@ void setup()
   do_keypad_startup();
   do_gyro_startup();
   do_baro_startup();
-  
+  last = millis();
 }
 
 void loop()
 {
   loop_keypad();
-  gyro_loop(); 
-  baro_loop();
+
 }
 
 void loop_keypad(){
  if(alarm) {
     checkKeypad();
-    if(!hasInput) tone(speaker, NOTE_A4);
+    if(!hasInput) tone(speaker, 440);
   }else{
 
 
@@ -159,15 +163,24 @@ void loop_keypad(){
       
       //Phase 2: Box Locked
       //Step 1: Establish WiFly connection, make noise if connection failed
+          //Step 2: Check LDR 
+       checkLDR();
 
-        //Step 2: Check LDR 
-      if ((millis() % 100) == 0) checkLDR();
-
+      if(millis()-last >= 1000){
+    
       //Step 4: Check Temp and humidity
-      if ((millis() % 1000) == 0) checkTemp();
+      checkTemp();
 
       //Step 5: Check gyroscope
-      //Step 6: Check GPS
+        gyro_loop(); 
+        
+     //Step 6 Check barometer
+      baro_loop();
+        
+      
+      last = millis();
+      }
+      //Step 7: Check GPS
       readGPS();
     }
   }
@@ -399,22 +412,22 @@ void checkTemp(){
   }
 
   Serial.print("Humidity (%): ");
-  Serial.println((float)DHT11.humidity, DEC);
+  Serial.println((float)DHT11.humidity, 2);
 
-  Serial.print("Temperature (°C): ");
-  Serial.println((float)DHT11.temperature, DEC);
+  Serial.print("Temperature (deg C): ");
+  Serial.println((float)DHT11.temperature, 2);
 
-  Serial.print("Temperature (°F): ");
-  Serial.println(DHT11.fahrenheit(), DEC);
+  Serial.print("Temperature (deg F): ");
+  Serial.println(DHT11.fahrenheit(), 2);
 
-  Serial.print("Temperature (°K): ");
-  Serial.println(DHT11.kelvin(), DEC);
+  Serial.print("Temperature (deg K): ");
+  Serial.println(DHT11.kelvin(), 2);
 
-  Serial.print("Dew Point (°C): ");
-  Serial.println(DHT11.dewPoint(), DEC);
+  Serial.print("Dew Point ( deg C): ");
+  Serial.println(DHT11.dewPoint(), 2);
 
-  Serial.print("Dew PointFast (°C): ");
-  Serial.println(DHT11.dewPointFast(), DEC);
+  Serial.print("Dew PointFast (deg C): ");
+  Serial.println(DHT11.dewPointFast(), 2);
 
 }
 
