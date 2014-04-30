@@ -30,17 +30,11 @@ DHT11 Library provided by Virtuabotix, Author Joseph Dattilo
 
 boolean battery = false; //Set to true when setting software
 
-int warn[] = {
-  1760, 988, 1760, 1760, 988, 1760, 988, 
-  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
-  1760,988, 1760, 988, 1760, 988, 1760, 988};
-
-int key[] = {1760};
 
 //Sensor values
 int temp;
 int hums;
-String coords;
+String coords[100];
 int angle;
 boolean codeSet = false;
 boolean alarm = false;
@@ -56,8 +50,7 @@ int photoLevel = 300;
 
 //Keypad pins
 //Columns[left, mid, right]
-int columns[] = {
-  11,12,10};
+int columns[] = {11,12,10};
 //Rows[top, mid, bottom, symbol]
 int rows[] = {
   5, 6, 8, 7};
@@ -360,7 +353,7 @@ void checkKeypad(){
 void blinkGreen(int count, int delayTime) {
   for (int i=0; i<count; i++) {
     analogWrite(greenLED, 255);
-    playSound(key, 100, sizeof(key) / sizeof(int));
+    playSound(, 100, sizeof(key) / sizeof(int));
     delay(delayTime/2);
     analogWrite(greenLED, 0);
     delay(delayTime/2);
@@ -430,7 +423,9 @@ void soundAlarm(){
 
 
   //Make noise
-  playSound(warn, 100, (sizeof(warn) / sizeof(int)));
+  playSound({1760, 988, 1760, 1760, 988, 1760, 988, 
+  1760, 988, 1760, 988, 1760, 988, 1760, 988, 
+  1760, 988, 1760, 988, 1760, 988, 1760, 988}, 100, 23);
   alarm = true;
 }
 
@@ -524,6 +519,6 @@ void boxUnlocked(){
       else if((!digitalRead(rows[3])) && (!digitalRead(columns[0])) && codeSet) {
         locked = true;
         Serial.println(F("Box locked")); 
-      playSound(key, 100, sizeof(key) / sizeof(int));
+      playSound({1760}, 100, 1);
     }
 }
